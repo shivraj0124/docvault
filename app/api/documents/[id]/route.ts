@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { removeDocument ,renameDocument } from "@/services/document.service";
+import { removeDocument, renameDocument } from "@/services/document.service";
 import { JwtPayload } from "jsonwebtoken";
+import { getSignedFileUrl } from "@/services/s3.service";
 import { getDocumentById } from "@/repositories/document.repository";
 interface Params {
   params: Promise<{
@@ -9,10 +10,7 @@ interface Params {
   }>;
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: Params
-) {
+export async function DELETE(request: Request, { params }: Params) {
   try {
     const user = await getCurrentUser();
 
@@ -22,7 +20,7 @@ export async function DELETE(
           success: false,
           message: "Unauthorized",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -40,15 +38,12 @@ export async function DELETE(
         success: false,
         message: error.message,
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
 }
 
-export async function GET(
-  request: Request,
-  { params }: Params
-) {
+export async function GET(request: Request, { params }: Params) {
   try {
     const user = await getCurrentUser();
 
@@ -58,7 +53,7 @@ export async function GET(
           success: false,
           message: "Unauthorized",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -72,7 +67,7 @@ export async function GET(
           success: false,
           message: "Document not found",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -82,13 +77,20 @@ export async function GET(
           success: false,
           message: "Forbidden",
         },
-        { status: 403 }
+        { status: 403 },
       );
     }
+    const signedUrl =
+      document.storage_provider === "S3"
+        ? await getSignedFileUrl(document.storage_key)
+        : document.file_url;
 
     return NextResponse.json({
       success: true,
-      data: document,
+      data: {
+        ...document,
+        file_url: signedUrl,
+      },
     });
   } catch (error) {
     console.error(error);
@@ -98,15 +100,12 @@ export async function GET(
         success: false,
         message: "Internal Server Error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
-export async function PUT(
-  request: Request,
-  { params }: Params
-) {
+export async function PUT(request: Request, { params }: Params) {
   try {
     const user = await getCurrentUser();
 
@@ -116,18 +115,14 @@ export async function PUT(
           success: false,
           message: "Unauthorized",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
     const { id } = await params;
     const { title } = await request.json();
 
-    const updatedDocument = await renameDocument(
-      Number(id),
-      user.id,
-      title
-    );
+    const updatedDocument = await renameDocument(Number(id), user.id, title);
 
     return NextResponse.json({
       success: true,
@@ -140,7 +135,7 @@ export async function PUT(
         success: false,
         message: error.message,
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
 }

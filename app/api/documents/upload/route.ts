@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { uploadToCloudinary } from "@/services/storage.service";
+import { uploadToS3 } from "@/services/s3.service";
 import { saveDocument } from "@/services/document.service";
 import { validateFile } from "@/validations/file.validation";
 import { AppError } from "@/utils/AppError";
@@ -11,10 +12,7 @@ export async function POST(request: Request) {
     const user = await getCurrentUser();
 
     if (!user) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     const formData = await request.formData();
@@ -22,7 +20,7 @@ export async function POST(request: Request) {
     const file = formData.get("file") as File;
     const title = formData.get("title") as string;
     const category = formData.get("category") as string;
-    console.log("category",category)
+    console.log("category", category);
 
     if (!file) {
       return NextResponse.json(
@@ -30,7 +28,7 @@ export async function POST(request: Request) {
           success: false,
           message: "File is required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -40,7 +38,7 @@ export async function POST(request: Request) {
           success: false,
           message: "Category is required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -50,7 +48,7 @@ export async function POST(request: Request) {
           success: false,
           message: "Invalid category",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -62,23 +60,23 @@ export async function POST(request: Request) {
           success: false,
           message: validation.message,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const uploadedFile = await uploadToCloudinary(buffer, file.name);
+    const uploadedFile = await uploadToS3(buffer, file.name, file.type,user.id);
 
     await saveDocument({
       userId: (user as any).id,
       title,
       category,
       originalName: file.name,
-      storageKey: uploadedFile.public_id,
-      storageProvider: "CLOUDINARY",
-      fileUrl: uploadedFile.secure_url,
+      storageKey: uploadedFile.key,
+      storageProvider: "S3",
+      fileUrl: uploadedFile.url,
       mimeType: file.type,
       fileSize: file.size,
       is_favourite: false,
@@ -88,7 +86,7 @@ export async function POST(request: Request) {
       success: true,
       message: "Document uploaded successfully",
       data: {
-        url: uploadedFile.secure_url,
+        url: uploadedFile.url,
       },
     });
   } catch (error) {
@@ -98,7 +96,7 @@ export async function POST(request: Request) {
           success: false,
           message: error.message,
         },
-        { status: error.statusCode }
+        { status: error.statusCode },
       );
     }
 
@@ -109,7 +107,7 @@ export async function POST(request: Request) {
         success: false,
         message: "Internal Server Error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

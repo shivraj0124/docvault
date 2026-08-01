@@ -1,8 +1,13 @@
-import { createDocument ,updateDocumentTitle,getDocumentById,
-  deleteDocument} from "@/repositories/document.repository";
+import {
+  createDocument,
+  updateDocumentTitle,
+  getDocumentById,
+  deleteDocument,
+} from "@/repositories/document.repository";
 import { getDocumentsByUserId } from "@/repositories/document.repository";
 import { deleteFromCloudinary } from "./storage.service";
 import { searchDocuments } from "@/repositories/document.repository";
+import { deleteFromS3 } from "./s3.service";
 
 interface UploadDocument {
   userId: number;
@@ -25,10 +30,7 @@ export async function saveDocument(data: UploadDocument) {
   };
 }
 
-export async function removeDocument(
-  documentId: number,
-  userId: number
-) {
+export async function removeDocument(documentId: number, userId: number) {
   const document = await getDocumentById(documentId);
 
   if (!document) {
@@ -39,7 +41,11 @@ export async function removeDocument(
     throw new Error("Unauthorized");
   }
 
-  await deleteFromCloudinary(document.storage_key);
+  if (document.storage_provider === "S3") {
+    await deleteFromS3(document.storage_key);
+  } else {
+    await deleteFromCloudinary(document.storage_key);
+  }
 
   await deleteDocument(documentId);
 
@@ -55,7 +61,7 @@ export async function getAllDocuments(userId: number) {
 export async function renameDocument(
   documentId: number,
   userId: number,
-  title: string
+  title: string,
 ) {
   const document = await getDocumentById(documentId);
 
@@ -78,21 +84,14 @@ export async function renameDocument(
   return await getDocumentById(documentId);
 }
 
-
 export async function searchUserDocuments(
   userId: number,
   search: string,
   category: string,
   page: number,
-  limit: number
+  limit: number,
 ) {
-  const result = await searchDocuments(
-    userId,
-    search,
-    category,
-    page,
-    limit
-  );
+  const result = await searchDocuments(userId, search, category, page, limit);
 
   return {
     documents: result.documents,

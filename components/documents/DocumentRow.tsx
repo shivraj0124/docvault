@@ -11,7 +11,7 @@ import { saveAs } from "file-saver";
 interface Document {
   id: number;
   title: string;
-  category:string;
+  category: string;
   mime_type: string;
   file_size: number;
   file_url: string;
@@ -32,9 +32,23 @@ export const formatDateTime = (date: string) => {
   });
 };
 export default function DocumentRow({ document }: Props) {
-  const handleDownload = () => {
-    saveAs(document.file_url, document?.original_name);
+  // const handleDownload = () => {
+  //   saveAs(document.file_url, document?.original_name);
+  // };
+
+  const handleDownload = async () => {
+    const response = await fetch(`/api/documents/${document.id}`);
+    const result = await response.json();
+
+    saveAs(result.data.file_url, document.original_name);
   };
+  const handlePreview = async () => {
+  const response = await fetch(`/api/documents/${document.id}`);
+
+  const result = await response.json();
+
+  window.open(result.data.file_url, "_blank");
+};
   const getFileIcon = (mimeType: string) => {
     if (mimeType === "application/pdf") {
       return <FileText className="h-5 w-5 text-red-500" />;
@@ -70,9 +84,7 @@ export default function DocumentRow({ document }: Props) {
         {(document.file_size / 1024 / 1024).toFixed(2)} MB
       </td>
 
-      <td className="px-4 py-3">
-       {formatDateTime(document.created_at)}
-      </td>
+      <td className="px-4 py-3">{formatDateTime(document.created_at)}</td>
 
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
@@ -80,7 +92,7 @@ export default function DocumentRow({ document }: Props) {
           <Button
             size="icon"
             variant="outline"
-            onClick={() => window.open(document.file_url, "_blank")}
+            onClick={handlePreview}
           >
             <Eye size={16} />
           </Button>
